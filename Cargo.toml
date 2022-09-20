@@ -1,0 +1,7 @@
+# Workspace configuration
+
+[workspace]
+members = [
+	"chip8-lib", # The library
+	"chip8-emu", # The emulator
+]
