@@ -1,24 +1,27 @@
 use rodio::{source::Source, Decoder, OutputStream};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 
-pub struct AudioDriver;
+pub struct AudioDriver<'a> {
+	pub config: HashMap<&'a str, &'a str>
+}
 
-impl AudioDriver {
-    pub fn play_bip() {
-        AudioDriver::play("assets/bip.wav", 100);
+impl<'a> AudioDriver<'a> {
+    pub fn play_bip(&self) {
+        AudioDriver::play(self.config.get("bip").unwrap(), 100);
     }
 
-    pub fn play_open() {
-        AudioDriver::play("assets/open.wav", 850);
+    pub fn play_open(&self) {
+        AudioDriver::play(self.config.get("open").unwrap(), 850);
     }
 
-    pub fn play_close() {
-        AudioDriver::play("assets/close.wav", 800);
+    pub fn play_close(&self) {
+        AudioDriver::play(self.config.get("close").unwrap(), 800);
     }
 
-    pub fn play_err() {
-        AudioDriver::play("assets/err.wav", 100);
+    pub fn play_err(&self) {
+        AudioDriver::play(self.config.get("error").unwrap(), 100);
     }
 
     fn play(path: &str, millis: u64) {

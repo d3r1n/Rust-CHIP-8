@@ -3,6 +3,14 @@
 // N or nibble - A 4-bit value, the lowest 4 bits of the instruction
 // X or X register - A 4-bit value, the lower 4 bits of the high byte of the instruction
 // Y or Y register - A 4-bit value, the upper 4 bits of the low byte of the instruction
+
+use crate::drivers::{
+	//display_driver::DisplayDriver,
+	//input_driver::InputDriver,
+	rom_driver::ROM,
+	//sound_driver::SoundDriver,
+};
+
 pub struct OpCode(u16);
 
 #[allow(dead_code)]
@@ -157,4 +165,78 @@ impl Instruction {
             _ => None,
         }
     }
+}
+
+#[allow(dead_code)]
+pub struct Emulator<'a> {
+	pub memory: [u8; 4096], // 4K memory; 0x000 - 0xFFF
+	pub v: [u8; 16], 	   	// 16 8-bit registers; 0x0 - 0xF
+	pub i: u16, 			// memory address register
+	pub pc: u16, 			// program counter	
+	pub stack: [u16; 16], 	// stack
+	pub sp: u8, 			// stack pointer; points to the top of the stack
+	pub delay_timer: u8, 	// delay timer
+	pub sound_timer: u8, 	// sound timer
+	// pub display: &'a mut Display, // display
+	// pub keyboard: &'a mut Keyboard, // keyboard
+	// pub sound: &'a mut Sound, // sound
+}
+
+impl<'a> Emulator<'a> {
+	// MISC operations
+	pub fn new() -> Emulator<'a> {
+		Emulator {
+			memory: [0; 4096],
+			v: [0; 16],
+			i: 0x200,
+			pc: 0x200,
+			stack: [0; 16],
+			sp: 0,
+			delay_timer: 0,
+			sound_timer: 0,
+			// display: display,
+			// keyboard: keyboard,
+			// sound: sound,
+		}
+	}
+	
+	pub fn load_rom(&mut self, rom: ROM) {
+		// Load the ROM into memory
+		for (i, byte) in rom.data.iter().enumerate() {
+			self.memory[0x200 + i] = *byte;
+		}
+	}
+
+	pub fn reset(&self) {
+		self.reset_memory();
+		self.reset_registers();
+	}
+
+	pub fn reset_memory(&mut self) {
+		self.memory = [0; 4096];
+	}
+
+	pub fn reset_registers(&mut self) {
+		self.v = [0; 16];
+		self.i = 0x200;
+		self.pc = 0x200;
+		self.stack = [0; 16];
+		self.sp = 0;
+		self.delay_timer = 0;
+		self.sound_timer = 0;
+	}
+
+	// Instruction Operations
+	pub fn read_instruction(&self) -> Instruction {
+		let opcode = self.read_opcode();
+		Instruction::from_opcode(opcode)
+	}
+
+	pub fn read_opcode(&self) -> OpCode {
+		// Read the 2 byte long opcode from memory
+		let hb = self.memory[self.pc as usize] as u16; // high byte (left side byte)
+		let lb = self.memory[(self.pc + 1) as usize] as u16; // low byte (right side byte)
+		let combine = (hb << 8) | lb; // combine the 2 bytes into a 16 bit opcode
+		OpCode(combine)
+	}
 }
