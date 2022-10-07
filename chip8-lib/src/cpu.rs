@@ -169,6 +169,9 @@ impl Instruction {
 
 #[allow(dead_code)]
 pub struct Emulator<'a> {
+	// 0x000 - 0x1FF: Chip 8 interpreter (contains font set in emu)
+	// 0x050 - 0x0A0: Used for the built in 4x5 pixel font set (0-F)
+	// 0x200 - 0xFFF: Program ROM and work RAM
 	pub memory: [u8; 4096], // 4K memory; 0x000 - 0xFFF
 	pub v: [u8; 16], 	   	// 16 8-bit registers; 0x0 - 0xF
 	pub i: u16, 			// memory address register
@@ -177,15 +180,15 @@ pub struct Emulator<'a> {
 	pub sp: u8, 			// stack pointer; points to the top of the stack
 	pub delay_timer: u8, 	// delay timer
 	pub sound_timer: u8, 	// sound timer
-	// pub display: &'a mut Display, // display
-	// pub keyboard: &'a mut Keyboard, // keyboard
-	// pub sound: &'a mut Sound, // sound
+	// pub display: &mut Display, // display
+	// pub keyboard: &mut Keyboard, // keyboard
+	// pub sound: &mut Sound, // sound
 }
 
-impl<'a> Emulator<'a> {
+impl Emulator {
 	// MISC operations
-	pub fn new() -> Emulator<'a> {
-		Emulator {
+	pub fn new() -> Self {
+		Self {
 			memory: [0; 4096],
 			v: [0; 16],
 			i: 0x200,
@@ -239,4 +242,6 @@ impl<'a> Emulator<'a> {
 		let combine = (hb << 8) | lb; // combine the 2 bytes into a 16 bit opcode
 		OpCode(combine)
 	}
+
+	pub fn run_instruction(&mut self, instr: Instruction)
 }
