@@ -3,9 +3,9 @@
 // N or nibble - A 4-bit value, the lowest 4 bits of the instruction
 // X or X register - A 4-bit value, the lower 4 bits of the high byte of the instruction
 // Y or Y register - A 4-bit value, the upper 4 bits of the low byte of the instruction
-
+use crate::errors::Chip8Error;
 use crate::drivers::{
-	//display_driver::DisplayDriver,
+	graphics_driver::Display,
 	//input_driver::InputDriver,
 	rom_driver::ROM,
 	//sound_driver::SoundDriver,
@@ -168,7 +168,7 @@ impl Instruction {
 }
 
 #[allow(dead_code)]
-pub struct Emulator<'a> {
+pub struct Emulator {
 	// 0x000 - 0x1FF: Chip 8 interpreter (contains font set in emu)
 	// 0x050 - 0x0A0: Used for the built in 4x5 pixel font set (0-F)
 	// 0x200 - 0xFFF: Program ROM and work RAM
@@ -176,13 +176,13 @@ pub struct Emulator<'a> {
 	pub v: [u8; 16], 	   	// 16 8-bit registers; 0x0 - 0xF
 	pub i: u16, 			// memory address register
 	pub pc: u16, 			// program counter	
-	pub stack: [u16; 16], 	// stack
+	pub stack: [u16; 16], 	// stack; 16 levels of 16-bit values
 	pub sp: u8, 			// stack pointer; points to the top of the stack
 	pub delay_timer: u8, 	// delay timer
 	pub sound_timer: u8, 	// sound timer
-	// pub display: &mut Display, // display
-	// pub keyboard: &mut Keyboard, // keyboard
-	// pub sound: &mut Sound, // sound
+	pub display: Display, 	// display
+	// pub keyboard: Keyboard, // keyboard
+	// pub sound: Sound, // sound
 }
 
 impl Emulator {
@@ -195,9 +195,9 @@ impl Emulator {
 			pc: 0x200,
 			stack: [0; 16],
 			sp: 0,
-			delay_timer: 0,
-			sound_timer: 0,
-			// display: display,
+			delay_timer: 0, 
+			sound_timer: 0, 
+			display: Display::new(),
 			// keyboard: keyboard,
 			// sound: sound,
 		}
@@ -210,7 +210,7 @@ impl Emulator {
 		}
 	}
 
-	pub fn reset(&self) {
+	pub fn reset(&mut self) {
 		self.reset_memory();
 		self.reset_registers();
 	}
@@ -230,9 +230,9 @@ impl Emulator {
 	}
 
 	// Instruction Operations
-	pub fn read_instruction(&self) -> Instruction {
+	pub fn read_instruction(&self) -> Option<Instruction> {
 		let opcode = self.read_opcode();
-		Instruction::from_opcode(opcode)
+		Instruction::from(opcode)
 	}
 
 	pub fn read_opcode(&self) -> OpCode {
@@ -243,5 +243,71 @@ impl Emulator {
 		OpCode(combine)
 	}
 
-	pub fn run_instruction(&mut self, instr: Instruction)
+	pub fn run_instruction(&mut self, instr: Instruction) -> Result<(), Chip8Error> {
+		match instr {
+			Instruction::ClearScreen => {
+				// Clear the display
+				self.display.clear();
+				// Increment the program counter by 2
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::Return => {
+				// Return from a subroutine
+				if self.sp < 1 {
+					Err(Chip8Error::StackUnderflow)
+				}
+				else {
+					// Decrement the stack pointer
+					self.sp -= 1;
+					// Set the program counter to the address at the top of the stack
+					self.pc = self.stack[self.sp as usize];
+					// Increment the program counter by 2 to skip the returned address
+					self.pc += 2;
+					Ok(())
+				}
+			},
+			Instruction::Jump(addr) => {
+				// Jump to location nnn
+				self.pc = addr;
+				Ok(())
+			},
+			Instruction::Call(addr) => {
+				// Call subroutine at nnn
+				if self.sp > 15 {
+					Err(Chip8Error::StackOverflow)
+				}
+				else {
+					// Store the current program counter on the stack
+					self.stack[self.sp as usize] = self.pc;
+					// Increment the stack pointer
+					self.sp += 1;
+					// Set the program counter to nnn
+					self.pc = addr;
+					Ok(())
+				}
+			},
+			Instruction::SkipEqual(register, byte) => {
+				// Skip next instruction if register = byte
+				if self.v[register] == byte {
+					// Increment the program counter by 2
+					self.pc += 2;
+				}
+				// Increment the program counter by 2 to move to the next instruction
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::SkipNotEqual(register, byte) => {
+				// Skip next instruction if register != byte
+				if self.v[register] != byte {
+					// Increment the program counter by 2
+					self.pc += 2;
+				}
+				// Increment the program counter by 2 to move on to the next instruction
+				self.pc += 2;
+				Ok(())
+			},
+			_ => Ok(()),
+		}
+	}
 }

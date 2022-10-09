@@ -13,7 +13,8 @@ impl ROM {
 		}
 	}
 
-	pub fn from_file(path: Path) -> io::Result<ROM> {
+	pub fn from_file(file_path: &str) -> io::Result<ROM> {
+		let path = Path::new(file_path);
 		let mut file = File::open(path).unwrap();
 		let mut data: Vec<u8> = Vec::new();
 
