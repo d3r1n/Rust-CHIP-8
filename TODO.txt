@@ -1,1 +1,9 @@
-[ ] - Implement OpCodes
+[X] - Implement OpCodes
+[X] - Implement Instructions
+[X] - Implement Sound driver
+[ ] - Implement Display driver
+[ ] - Implement Input driver
+[ ] - Debugger Interface
+[ ] - Emulator Interface
+[ ] - Binary
+[ ] - Documentation

@@ -3,6 +3,8 @@
 // N or nibble - A 4-bit value, the lowest 4 bits of the instruction
 // X or X register - A 4-bit value, the lower 4 bits of the high byte of the instruction
 // Y or Y register - A 4-bit value, the upper 4 bits of the low byte of the instruction
+use rand::Rng;
+
 use crate::errors::Chip8Error;
 use crate::drivers::{
 	graphics_driver::Display,
@@ -56,7 +58,7 @@ pub type Address = u16; // original address value is 12 bits, but we have to use
 
 // All of the standart instructions in CHIP-8
 pub enum Instruction {
-    ClearScreen, // 00E0 - CLS
+    ClearDisplay, // 00E0 - CLS
     Return,      // 00EE - RET
 
     Jump(Address),                   // 1NNN - JP addr
@@ -105,7 +107,7 @@ impl Instruction {
             // Match the first nibble
             0x0000 => match opcode.0 & 0x000F {
                 // Match the instructions starting with 0x0
-                0x0000 => Some(Instruction::ClearScreen),
+                0x0000 => Some(Instruction::ClearDisplay),
                 0x000E => Some(Instruction::Return),
                 _ => None,
             },
@@ -243,9 +245,16 @@ impl Emulator {
 		OpCode(combine)
 	}
 
+	pub fn check_register(&self, register: usize) -> Option<Chip8Error> {
+		if !register < 16 {
+			Some(Chip8Error::InvalidRegister(register))
+		}
+		else { None }
+	}
+
 	pub fn run_instruction(&mut self, instr: Instruction) -> Result<(), Chip8Error> {
 		match instr {
-			Instruction::ClearScreen => {
+			Instruction::ClearDisplay => {
 				// Clear the display
 				self.display.clear();
 				// Increment the program counter by 2
@@ -287,27 +296,392 @@ impl Emulator {
 					Ok(())
 				}
 			},
-			Instruction::SkipEqual(register, byte) => {
-				// Skip next instruction if register = byte
-				if self.v[register] == byte {
-					// Increment the program counter by 2
+			Instruction::SkipEqual(reg_x, byte) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Skip next instruction if Vx = byte
+				if self.v[reg_x]== byte {
+					self.pc += 4;
+				}
+				else {
 					self.pc += 2;
 				}
-				// Increment the program counter by 2 to move to the next instruction
+
+				Ok(())
+			},
+			Instruction::SkipNotEqual(reg_x, byte) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Skip next instruction if Vx != byte
+				// Else increment the program counter by 2
+				if self.v[reg_x]!= byte {
+					self.pc += 4;
+				}
+				else {
+					self.pc += 2;
+				}
+				
+				Ok(())
+			},
+			Instruction::SkipEqualXY(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Skip next instruction if Vx = Vy
+				// Else increment the program counter by 2
+				if self.v[reg_x] == self.v[reg_y] {
+					self.pc += 4;
+				}
+				else {
+					self.pc += 2;
+				}
+				Ok(())
+			},
+			Instruction::Load(reg_x, byte) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Vx = byte
+				self.v[reg_x]= byte;
 				self.pc += 2;
 				Ok(())
 			},
-			Instruction::SkipNotEqual(register, byte) => {
-				// Skip next instruction if register != byte
-				if self.v[register] != byte {
-					// Increment the program counter by 2
-					self.pc += 2;
+			Instruction::Add(reg_x, byte) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
 				}
-				// Increment the program counter by 2 to move on to the next instruction
+
+				// Vx += byte
+				self.v[reg_x]+= byte;
 				self.pc += 2;
 				Ok(())
 			},
-			_ => Ok(()),
+			Instruction::LoadXY(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Vx = Vy
+				self.v[reg_x] = self.v[reg_y];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::Or(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Vx = Vx | Vy (Bitwise OR)
+				self.v[reg_x] |= self.v[reg_y];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::And(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Vx = Vx & Vy (Bitwise AND)
+				self.v[reg_x] &= self.v[reg_y];	
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::Xor(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Vx = Vx ^ Vy (Bitwise XOR)
+				self.v[reg_x] ^= self.v[reg_y];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::AddXY(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Vx += Vy
+				self.v[reg_x] += self.v[reg_y];
+				self.pc += 2;
+				
+				Ok(())
+			},
+			Instruction::SubXY(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Vx -= Vy
+				self.v[reg_x] -= self.v[reg_y];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::ShiftRight(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Shift Vx right and save the least significant bit in register VF
+				self.v[0xF] = self.v[reg_x] & 0x1;
+				self.v[reg_x] >>= 1;
+
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::SubNXY(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+				// If Vx > Vy then VF = 1, otherwise VF = 0
+				// Vx = Vy - Vx
+				self.v[reg_x] = self.v[reg_y] - self.v[reg_x];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::ShiftLeft(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Shift Vx left and save the most significant bit in register VF
+				self.v[0xF] = self.v[reg_x] >> 7;
+				self.v[reg_x] <<= 1;
+
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::SkipNotEqualXY(reg_x, reg_y) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+
+				// Skip next instruction if Vx != Vy
+				if self.v[reg_x] != self.v[reg_y] {
+					self.pc += 4;
+				}
+				else {
+					self.pc += 2;
+				}
+				Ok(())
+			},
+			Instruction::LoadI(addr) => {
+				// I = addr
+				self.i = addr;
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::JumpV0(addr) => {
+				// Jump to addr + V0
+				self.pc = addr + self.v[0] as u16;
+				Ok(())
+			},
+			Instruction::Rand(reg_x, byte) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				
+				// Random generator
+				let mut rng = rand::thread_rng();
+
+				// Vx = random_u8 & byte
+				self.v[reg_x] = rng.gen::<u8>() & byte;
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::Draw(reg_x, reg_y , nibble) => {
+				// Check registers
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+				else if let Some(err) = self.check_register(reg_y) {
+					return Err(err);
+				}
+				// Check nibble
+				if nibble > 0xF {
+					return Err(Chip8Error::InvalidNibble(nibble));
+				}
+
+				// Draw sprite at (Vx, Vy) with height nibble
+				// Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
+				// TODO
+				Ok(())
+			},
+			Instruction::SkipKeyPressed(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Skip next instruction if key with the value of Vx is pressed
+				// TODO
+				Ok(())
+			},
+			Instruction::SkipNotKeyPressed(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Skip next instruction if key with the value of Vx is not pressed
+				// TODO
+				Ok(())
+			},
+			Instruction::LoadDelay(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Vx = delay timer value
+				self.v[reg_x] = self.delay_timer;
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::WaitKeyPress(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Wait for a key press, store the value of the key in Vx
+				// TODO
+				Ok(())
+			},
+			Instruction::SetDelay(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Delay timer = Vx
+				self.delay_timer = self.v[reg_x];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::SetSound(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Sound timer = Vx
+				self.sound_timer = self.v[reg_x];
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::AddI(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// I += Vx
+				self.i += self.v[reg_x] as u16;
+				self.pc += 2;
+				Ok(())
+			},
+			Instruction::LoadSprite(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// I = location of sprite for digit Vx
+				// TODO
+				Ok(())
+			},
+			Instruction::LoadBCD(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Store BCD representation of Vx in memory locations I, I+1, and I+2
+				// TODO
+				Ok(())
+			},
+			Instruction::LoadRegisters(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Store registers V0 through Vx in memory starting at location I
+				for i in 0..=reg_x {
+					self.v[i] = self.memory[self.i as usize + i];
+				}
+
+				self.i += (reg_x as u16) + 1;
+				self.pc += 2;
+
+				Ok(())
+			},
+			Instruction::LoadMemory(reg_x) => {
+				// Check register
+				if let Some(err) = self.check_register(reg_x) {
+					return Err(err);
+				}
+
+				// Read registers V0 through Vx from memory starting at location I
+				for i in 0..=reg_x {
+					self.memory[self.i as usize + i] = self.v[i];
+				}
+
+				self.i += (reg_x as u16) + 1;
+				self.pc += 2;
+
+				Ok(())
+			}
 		}
 	}
 }
