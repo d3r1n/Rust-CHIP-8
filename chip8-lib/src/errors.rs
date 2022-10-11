@@ -4,6 +4,7 @@ pub enum Chip8Error {
 	StackOverflow,
 	InvalidRegister(usize),
 	InvalidNibble(u8),
+	DisplayError(String),
 }
 
 impl std::fmt::Display for Chip8Error {
@@ -13,6 +14,7 @@ impl std::fmt::Display for Chip8Error {
 			Chip8Error::StackOverflow => write!(f, "Stack Overflow"),
 			Chip8Error::InvalidRegister(register) => write!(f, "Invalid Register: {}", register),
 			Chip8Error::InvalidNibble(nibble) => write!(f, "Invalid Nibble: {}", nibble),
+			Chip8Error::DisplayError(ref e) => write!(f, "Display Error: {}", e),
 		}
 	}
 }

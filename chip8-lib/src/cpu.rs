@@ -8,9 +8,9 @@ use rand::Rng;
 use crate::errors::Chip8Error;
 use crate::drivers::{
 	graphics_driver::Display,
-	//input_driver::InputDriver,
+	keyboard_driver::Keyboard,
 	rom_driver::ROM,
-	//sound_driver::SoundDriver,
+	audio_driver::AudioDriver,
 };
 
 pub struct OpCode(u16);
@@ -183,13 +183,13 @@ pub struct Emulator {
 	pub delay_timer: u8, 	// delay timer
 	pub sound_timer: u8, 	// sound timer
 	pub display: Display, 	// display
-	// pub keyboard: Keyboard, // keyboard
-	// pub sound: Sound, // sound
+	pub keyboard: Keyboard, // keyboard
+	pub audio: AudioDriver, // audio
 }
 
 impl Emulator {
 	// MISC operations
-	pub fn new() -> Self {
+	pub fn new(audio_files: [String; 4]) -> Self {
 		Self {
 			memory: [0; 4096],
 			v: [0; 16],
@@ -199,9 +199,9 @@ impl Emulator {
 			sp: 0,
 			delay_timer: 0, 
 			sound_timer: 0, 
-			display: Display::new(),
-			// keyboard: keyboard,
-			// sound: sound,
+			display: Display::new(64,32, 0x0E0F12, 0x35D62F),
+			keyboard: Keyboard::new(),
+			audio: AudioDriver::new(audio_files),
 		}
 	}
 	
@@ -356,6 +356,7 @@ impl Emulator {
 
 				// Vx = byte
 				self.v[reg_x]= byte;
+				
 				self.pc += 2;
 				Ok(())
 			},
@@ -367,6 +368,7 @@ impl Emulator {
 
 				// Vx += byte
 				self.v[reg_x]+= byte;
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -381,6 +383,7 @@ impl Emulator {
 
 				// Vx = Vy
 				self.v[reg_x] = self.v[reg_y];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -395,6 +398,7 @@ impl Emulator {
 
 				// Vx = Vx | Vy (Bitwise OR)
 				self.v[reg_x] |= self.v[reg_y];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -409,6 +413,7 @@ impl Emulator {
 
 				// Vx = Vx & Vy (Bitwise AND)
 				self.v[reg_x] &= self.v[reg_y];	
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -423,6 +428,7 @@ impl Emulator {
 
 				// Vx = Vx ^ Vy (Bitwise XOR)
 				self.v[reg_x] ^= self.v[reg_y];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -437,8 +443,8 @@ impl Emulator {
 
 				// Vx += Vy
 				self.v[reg_x] += self.v[reg_y];
+
 				self.pc += 2;
-				
 				Ok(())
 			},
 			Instruction::SubXY(reg_x, reg_y) => {
@@ -452,6 +458,7 @@ impl Emulator {
 
 				// Vx -= Vy
 				self.v[reg_x] -= self.v[reg_y];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -479,6 +486,7 @@ impl Emulator {
 				// If Vx > Vy then VF = 1, otherwise VF = 0
 				// Vx = Vy - Vx
 				self.v[reg_x] = self.v[reg_y] - self.v[reg_x];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -516,6 +524,7 @@ impl Emulator {
 			Instruction::LoadI(addr) => {
 				// I = addr
 				self.i = addr;
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -535,6 +544,7 @@ impl Emulator {
 
 				// Vx = random_u8 & byte
 				self.v[reg_x] = rng.gen::<u8>() & byte;
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -553,7 +563,17 @@ impl Emulator {
 
 				// Draw sprite at (Vx, Vy) with height nibble
 				// Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
-				// TODO
+				let sprite_start = self.i as usize;
+				let sprite_end = sprite_start + nibble as usize;
+
+				let x = self.v[reg_x] as usize;
+				let y = self.v[reg_y] as usize;
+
+				self.v[0xF] = self
+					.display
+					.draw(x, y, &self.memory[sprite_start..sprite_end]);
+
+				self.pc += 2;
 				Ok(())
 			},
 			Instruction::SkipKeyPressed(reg_x) => {
@@ -562,8 +582,14 @@ impl Emulator {
 					return Err(err);
 				}
 
-				// Skip next instruction if key with the value of Vx is pressed
-				// TODO
+				// Skip next instruction if key with the value of Vx is pressed				
+				if self.keyboard.pressed_key() == Some(self.v[reg_x]) {
+					self.pc += 4;
+				}
+				else {
+					self.pc += 2;
+				} 
+
 				Ok(())
 			},
 			Instruction::SkipNotKeyPressed(reg_x) => {
@@ -573,7 +599,13 @@ impl Emulator {
 				}
 
 				// Skip next instruction if key with the value of Vx is not pressed
-				// TODO
+				if self.keyboard.pressed_key() != Some(self.v[reg_x]) {
+					self.pc += 4;
+				}
+				else {
+					self.pc += 2;
+				}
+
 				Ok(())
 			},
 			Instruction::LoadDelay(reg_x) => {
@@ -584,6 +616,7 @@ impl Emulator {
 
 				// Vx = delay timer value
 				self.v[reg_x] = self.delay_timer;
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -594,7 +627,11 @@ impl Emulator {
 				}
 
 				// Wait for a key press, store the value of the key in Vx
-				// TODO
+				if let Some(key) = self.keyboard.pressed_key() {
+					self.v[reg_x] = key;
+					self.pc += 2;
+				}
+
 				Ok(())
 			},
 			Instruction::SetDelay(reg_x) => {
@@ -605,6 +642,7 @@ impl Emulator {
 
 				// Delay timer = Vx
 				self.delay_timer = self.v[reg_x];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -616,6 +654,7 @@ impl Emulator {
 
 				// Sound timer = Vx
 				self.sound_timer = self.v[reg_x];
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -627,6 +666,7 @@ impl Emulator {
 
 				// I += Vx
 				self.i += self.v[reg_x] as u16;
+
 				self.pc += 2;
 				Ok(())
 			},
@@ -637,7 +677,9 @@ impl Emulator {
 				}
 
 				// I = location of sprite for digit Vx
-				// TODO
+				self.i = self.v[reg_x] as u16 * 5;
+
+				self.pc += 2;
 				Ok(())
 			},
 			Instruction::LoadBCD(reg_x) => {
@@ -647,7 +689,12 @@ impl Emulator {
 				}
 
 				// Store BCD representation of Vx in memory locations I, I+1, and I+2
-				// TODO
+				let value = self.v[reg_x];
+				self.memory[self.i as usize] = value / 100;
+				self.memory[self.i as usize + 1] = (value / 10) % 10;
+				self.memory[self.i as usize + 2] = (value % 100) % 10;
+				
+				self.pc += 2;
 				Ok(())
 			},
 			Instruction::LoadRegisters(reg_x) => {
@@ -662,8 +709,8 @@ impl Emulator {
 				}
 
 				self.i += (reg_x as u16) + 1;
-				self.pc += 2;
 
+				self.pc += 2;
 				Ok(())
 			},
 			Instruction::LoadMemory(reg_x) => {
@@ -678,8 +725,8 @@ impl Emulator {
 				}
 
 				self.i += (reg_x as u16) + 1;
-				self.pc += 2;
 
+				self.pc += 2;
 				Ok(())
 			}
 		}
