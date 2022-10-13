@@ -1,5 +1,0 @@
-[Audio]
-open = "./open.wav"
-close = "./close.wav"
-bip = "./bip.wav"
-error = "./err.wav" 
