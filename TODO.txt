@@ -3,6 +3,9 @@
 [X] - Implement Sound driver
 [X] - Implement Display driver
 [X] - Implement Keyboard driver
+[ ] - Solve the Bugs
+[ ] - Refactor code
+[ ] - Make Emulator and other parts modular
 [ ] - Debugger Interface
 [ ] - Emulator Interface
 [ ] - Binary
