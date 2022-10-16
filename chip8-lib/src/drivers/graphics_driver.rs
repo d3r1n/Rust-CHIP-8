@@ -18,7 +18,7 @@ impl Display {
             width,
             height,
             WindowOptions {
-                scale: Scale::X16,
+                scale: Scale::X8,
                 ..WindowOptions::default()
             },
         )
