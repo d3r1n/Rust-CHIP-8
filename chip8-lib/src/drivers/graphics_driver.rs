@@ -2,18 +2,18 @@ use minifb::{Key, Scale, Window, WindowOptions};
 
 use crate::errors::Chip8Error;
 
+const WIDTH: usize = 64;
+const HEIGHT: usize = 32;
 pub struct Display {
-    pub pixels: Vec<u8>,
+    pub pixels: [[u32; WIDTH]; HEIGHT],
     pub window: Window,
-    pub width: usize,
-    pub height: usize,
     pub back_color: u32,
     pub fore_color: u32,
 }
 
 impl Display {
     pub fn new(width: usize, height: usize, back_color: u32, fore_color: u32) -> Self {
-        let mut window = Window::new(
+        let window = Window::new(
             "Rust CHIP-8",
             width,
             height,
@@ -26,13 +26,9 @@ impl Display {
             panic!("Something went wrong when creating a window: {}", e);
         });
 
-        window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
-
         Display {
-            pixels: vec![0; width * height],
+            pixels: [[0; WIDTH]; HEIGHT],
             window,
-            width,
-            height,
             back_color,
             fore_color,
         }
@@ -43,7 +39,7 @@ impl Display {
     }
 
     pub fn clear(&mut self) {
-        self.pixels = vec![0; self.width * self.height];
+        self.pixels = [[0; WIDTH]; HEIGHT];
     }
 
     pub fn draw(&mut self, x: usize, y: usize, sprite: &[u8]) -> u8 {
@@ -51,40 +47,40 @@ impl Display {
         let mut yj: usize;
         let mut xi: usize;
 
-        for (j, byte) in sprite.iter().enumerate() {
-            yj = (y + j) % self.height;
+        for (j, sprite) in sprite.iter().enumerate() {
+			for i in 0..8 {
+                xi = (x + i) % WIDTH;
+                yj = (y + j) % HEIGHT;
 
-            for i in 0..8 {
-                xi = (x + i) % self.width;
-
-                if (byte & (0x80 >> i)) != 0 {
-                    if self.pixels[yj * self.width + xi] == 1 {
-                        collision = 1;
+                if sprite & (0x80 >> i) != 0 {
+                    if self.pixels[yj][xi] == 1 {
+                        collision = 1
                     }
-
-                    self.pixels[yj * self.width + xi] ^= 1;
+                    self.pixels[yj][xi] ^= 1;
                 }
             }
         }
-        if let Err(e) = self.update_screen() {
-            panic!("Something went wrong when updating the screen: {}", e);
-        }
+        self.update_screen().unwrap();
         collision
     }
 
     pub fn update_screen(&mut self) -> Result<(), Chip8Error> {
-        let mut buffer: Vec<u32> = vec![0; self.width * self.height];
+        let mut buffer = [0; WIDTH * HEIGHT];
+		let mut i = 0;
 
-        for (i, pixel) in self.pixels.iter().enumerate() {
-            buffer[i] = if *pixel == 0 {
-                self.back_color
-            } else {
-                self.fore_color
-            };
-        }
+		for y in 0..HEIGHT {
+			for x in 0..WIDTH {
+				buffer[i] = if self.pixels[y][x] == 1 {
+					self.fore_color
+				} else {
+					self.back_color
+				};
+				i += 1;
+			}
+		}
 
         self.window
-            .update_with_buffer(&buffer, self.width, self.height)
+            .update_with_buffer(&buffer, WIDTH, HEIGHT)
             .map_err(|e| Chip8Error::DisplayError(e.to_string()))
     }
 

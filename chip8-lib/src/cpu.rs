@@ -565,7 +565,7 @@ impl Emulator {
 		if self.st > 0 {
 			if self.st == 1 {
 				println!("BEEP!");
-				self.audio.play(Sounds::Beep);
+				// self.audio.play(Sounds::Beep);
 			}
 			self.st -= 1;
 		}

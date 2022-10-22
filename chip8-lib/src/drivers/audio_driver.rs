@@ -3,7 +3,7 @@ use rodio::{cpal, Decoder, OutputStream, OutputStreamHandle, Sink};
 use std::fs::File;
 use std::io::BufReader;
 
-const BEEP_PATH: &str = "./assets/beep.wav";
+const BEEP_PATH: &str = "/Users/d3r1n/Desktop/Repos/Rust-CHIP-8/assets/beep.wav";
 const ERROR_PATH: &str = "./assets/error.wav";
 const OPENING_PATH: &str = "./assets/opening.wav";
 const CLOSE_PATH: &str = "./assets/close.wav";
@@ -82,4 +82,18 @@ impl AudioDriver {
             self.sink.set_volume(volume);
         }
     }
+}
+
+// crate a test that plays an audio file
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_audio_driver() {
+		let audio_driver = AudioDriver::new();
+		audio_driver.play(Sounds::Beep);
+		audio_driver.volume(100.0);
+		audio_driver.stop();
+	}
 }
