@@ -5,7 +5,6 @@
 // Y or Y register 	- A 4-bit value, the upper 4 bits of the low byte of the instruction
 use rand::Rng;
 
-use crate::drivers::audio_driver::{AudioDriver, Sounds};
 use crate::drivers::{
     graphics_driver::Display,
     keyboard_driver::Keyboard,
@@ -242,7 +241,6 @@ pub struct Emulator {
     pub st: u8,    					// Sound timer
     pub display: Display,   		// Display
     pub keyboard: Keyboard, 		// Keyboard
-	pub audio: AudioDriver,				// Audio
 }
 
 impl Emulator {
@@ -259,7 +257,6 @@ impl Emulator {
             st: 0,
             display: Display::new(DISPLAY_WIDTH, DISPLAY_HEIGHT, BACK_COLOR, FORE_COLOR),
             keyboard: Keyboard::new(),
-			audio: AudioDriver::new(),
         };
 
         // Load the font set into memory
@@ -565,7 +562,6 @@ impl Emulator {
 		if self.st > 0 {
 			if self.st == 1 {
 				println!("BEEP!");
-				// self.audio.play(Sounds::Beep);
 			}
 			self.st -= 1;
 		}
