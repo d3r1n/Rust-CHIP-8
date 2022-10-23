@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 chip8_lib = {path="../chip8-lib"}
+minifb = "0.23.0"

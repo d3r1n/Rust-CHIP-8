@@ -6,7 +6,6 @@
 use rand::Rng;
 
 use crate::drivers::{
-    graphics_driver::Display,
     keyboard_driver::Keyboard,
     rom_driver::ROM,
 };
@@ -239,8 +238,9 @@ pub struct Emulator {
     pub sp: u8,             		// Stack pointer; points to the top of the stack
     pub dt: u8,    					// Delay timer
     pub st: u8,    					// Sound timer
-    pub display: Display,   		// Display
     pub keyboard: Keyboard, 		// Keyboard
+	pub draw_flag: bool,			// Draw flag
+	pub screen: [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT], // Screen
 }
 
 impl Emulator {
@@ -255,8 +255,9 @@ impl Emulator {
             sp: 0,
             dt: 0,
             st: 0,
-            display: Display::new(DISPLAY_WIDTH, DISPLAY_HEIGHT, BACK_COLOR, FORE_COLOR),
             keyboard: Keyboard::new(),
+			draw_flag: false,
+			screen: [false; DISPLAY_WIDTH * DISPLAY_HEIGHT],
         };
 
         // Load the font set into memory
@@ -280,6 +281,10 @@ impl Emulator {
 	fn pop(&mut self) -> u16 {
 		self.sp -= 1;
 		self.stack[self.sp as usize]
+	}
+
+	fn clear_screen(&mut self) {
+		self.screen = [false; DISPLAY_WIDTH * DISPLAY_HEIGHT];
 	}
 
 	// Fetch the next instruction
@@ -321,7 +326,7 @@ impl Emulator {
 		match instruction {
 			// Clear the display
 			Instruction::ClearDisplay => {
-				self.display.clear();
+				self.clear_screen();
 				Ok(())
 			},
 			// Return from a subroutine
@@ -460,13 +465,31 @@ impl Emulator {
 			},
 			// Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
 			Instruction::Draw(x, y, nibble) => {
-				let x = self.v[x] as usize;
-				let y = self.v[y] as usize;
-				let sprite_start = self.i as usize;
-				let sprite_end = sprite_start + nibble as usize;
+				let x_coord = self.v[x] as usize;
+				let y_coord = self.v[y] as usize;
+				let mut collision = false;
 
-				let collision = self.display.draw(x, y, &self.memory[sprite_start..sprite_end]);
+				for row in 0..nibble {
+					let addr = (self.i + row as u16) as usize;
+					let pixels = self.memory[addr];
+
+					for col in 0..8 {
+						if (pixels & (0x80 >> col)) != 0 {
+							// Sprites should wrap around screen, so apply modulo
+							let x = (x_coord + col) % DISPLAY_WIDTH;
+							let y = (y_coord + row as usize) % DISPLAY_HEIGHT;
+							// Get our pixel's index for our 1D screen array
+							let idx = x + DISPLAY_WIDTH * y;
+							// Check if we're about to flip the pixel and set
+							collision |= self.screen[idx];
+							self.screen[idx] ^= true;
+						}
+					}
+				}
+
 				self.v[0xF] = collision as u8;
+				self.draw_flag = true;
+
 				Ok(())
 			},
 			// Skip next instruction if key with the value of Vx is pressed
@@ -585,9 +608,5 @@ impl Emulator {
 	pub fn reset_stack(&mut self) {
 		self.stack = [0; STACK_SIZE];
 		self.sp = 0;
-	}
-
-	pub fn reset_display(&mut self) {
-		self.display.clear();
 	}
 }

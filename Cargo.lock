@@ -108,6 +108,7 @@ name = "chip8-emu"
 version = "0.1.0"
 dependencies = [
  "chip8_lib",
+ "minifb",
 ]
 
 [[package]]
