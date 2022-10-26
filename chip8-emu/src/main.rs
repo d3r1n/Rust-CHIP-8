@@ -1,6 +1,7 @@
 // Import SDL2
 use chip8_lib::{
     cpu::Emulator,
+	constants::CLOCK_SPEED,
     drivers::{rom_driver::ROM, screen_driver::Screen},
 };
 use sdl2::event::Event;
@@ -65,29 +66,29 @@ fn main() {
             // Play Sound
         }
 
-        // Sleep
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
+        // Sleep according to the clock speed
+		std::thread::sleep(std::time::Duration::from_millis(CLOCK_SPEED));
+	}
 }
 
 fn map_sdl_keys(key: Keycode) -> Option<u8> {
     match key {
-        Keycode::Num1 => Some(0x1),
-        Keycode::Num2 => Some(0x2),
-        Keycode::Num3 => Some(0x3),
-        Keycode::Num4 => Some(0xC),
-        Keycode::Q => Some(0x4),
-        Keycode::W => Some(0x5),
-        Keycode::E => Some(0x6),
-        Keycode::R => Some(0xD),
-        Keycode::A => Some(0x7),
-        Keycode::S => Some(0x8),
-        Keycode::D => Some(0x9),
-        Keycode::F => Some(0xE),
-        Keycode::Z => Some(0xA),
-        Keycode::X => Some(0x0),
-        Keycode::C => Some(0xB),
-        Keycode::V => Some(0xF),
-        _ => None,
-    }
+		Keycode::Num1 => Some(0x1),
+		Keycode::Num2 => Some(0x2),
+		Keycode::Num3 => Some(0x3),
+		Keycode::Num4 => Some(0xC),
+		Keycode::Q => Some(0x4),
+		Keycode::W => Some(0x5),
+		Keycode::E => Some(0x6),
+		Keycode::R => Some(0xD),
+		Keycode::A => Some(0x7),
+		Keycode::S => Some(0x8),
+		Keycode::D => Some(0x9),
+		Keycode::F => Some(0xE),
+		Keycode::Z => Some(0xA),
+		Keycode::X => Some(0x0),
+		Keycode::C => Some(0xB),
+		Keycode::V => Some(0xF),
+		_ => None,
+	}
 }
