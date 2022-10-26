@@ -49,21 +49,20 @@ impl Screen {
     }
 
     pub fn draw_screen(&mut self, screen: &[bool; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize]) {
-        // Set the canvas draw color to back color
-        self.canvas.set_draw_color(SDL_BACK_COLOR);
-        // Clear the canvas
-        self.canvas.clear();
-        // Set the canvas draw color to fore color
-        self.canvas.set_draw_color(SDL_FORE_COLOR);
         // Draw the screen
         for (i, pixel) in screen.iter().enumerate() {
+			let x = i % (SCREEN_WIDTH as usize);
+			let y = i / (SCREEN_WIDTH as usize);
+			// Set the draw color
             if *pixel {
-                let x = i % (SCREEN_WIDTH as usize);
-                let y = i / (SCREEN_WIDTH as usize);
-                self.canvas
-                    .fill_rect(Rect::new(x as i32, y as i32, 1, 1))
-                    .unwrap();
-            }
+				self.canvas.set_draw_color(SDL_FORE_COLOR);
+            } else {
+				self.canvas.set_draw_color(SDL_BACK_COLOR);
+			}
+			// Draw the pixel
+			self.canvas
+                .fill_rect(Rect::new(x as i32, y as i32, 1, 1))
+                .unwrap();
         }
         // Present the canvas
         self.canvas.present();

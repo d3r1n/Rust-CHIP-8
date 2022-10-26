@@ -25,10 +25,10 @@ pub const ROM_START: u16 = 0x200;
 pub const MEMORY_SIZE: usize = 4096;
 pub const NUM_REGISTERS: usize = 16;
 pub const NUM_KEYS: usize = 16;
-pub const CLOCK_SPEED: u64 = 5;
+pub const CLOCK_SPEED: u64 = 4;
 
 pub const SCREEN_WIDTH: u32 = 64;
 pub const SCREEN_HEIGHT: u32 = 32;
-pub const SCREEN_SCALE: u32 = 10;
+pub const SCREEN_SCALE: u32 = 16;
 pub const BACK_COLOR: u32 = 0x0E0F12;
 pub const FORE_COLOR: u32 = 0x35D62F;

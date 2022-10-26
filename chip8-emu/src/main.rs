@@ -10,7 +10,7 @@ use sdl2::{self, keyboard::Keycode};
 fn main() {
     // Initialize SDL2
     let (mut screen, sdl_context) = Screen::new();
-    let rom = ROM::from_file("roms/Tetris.ch8").unwrap();
+    let rom = ROM::from_file("roms/INVADERS.ch8").unwrap();
 
     // Initialize the emulator
     let mut emulator = Emulator::new();
