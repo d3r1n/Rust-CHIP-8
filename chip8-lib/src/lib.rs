@@ -1,3 +1,4 @@
+pub mod constants;
 pub mod cpu;
 pub mod debugger;
 pub mod drivers;

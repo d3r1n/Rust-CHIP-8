@@ -5,42 +5,9 @@
 // Y or Y register 	- A 4-bit value, the upper 4 bits of the low byte of the instruction
 use rand::Rng;
 
-use crate::drivers::{
-    keyboard_driver::Keyboard,
-    rom_driver::ROM,
-};
+use crate::constants::*;
+use crate::drivers::rom_driver::ROM;
 use crate::errors::Chip8Error;
-
-// CHIP-8's default fontset
-pub const FONT_SET_SIZE: usize = 80;
-pub const FONT_SET: [u8; FONT_SET_SIZE] = [
-	0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
-	0x20, 0x60, 0x20, 0x20, 0x70, // 1
-	0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
-	0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
-	0x90, 0x90, 0xF0, 0x10, 0x10, // 4
-	0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
-	0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
-	0xF0, 0x10, 0x20, 0x40, 0x40, // 7
-	0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
-	0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
-	0xF0, 0x90, 0xF0, 0x90, 0x90, // A
-	0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
-	0xF0, 0x80, 0x80, 0x80, 0xF0, // C
-	0xE0, 0x90, 0x90, 0x90, 0xE0, // D
-	0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-	0xF0, 0x80, 0xF0, 0x80, 0x80 // F
-];
-
-// CHIP-8's constants
-pub const STACK_SIZE: usize = 16;
-pub const ROM_START: u16 = 0x200;
-pub const MEMORY_SIZE: usize = 4096;
-pub const NUM_REGISTERS: usize = 16;
-pub const DISPLAY_WIDTH: usize = 64;
-pub const DISPLAY_HEIGHT: usize = 32;
-pub const BACK_COLOR: u32 = 0x0E0F12;
-pub const FORE_COLOR: u32 = 0x35D62F;
 
 pub struct OpCode(u16);
 
@@ -122,7 +89,7 @@ pub enum Instruction {
     SetDelay(Register),       // FX15 - LD DT, Vx
     SetSound(Register),       // FX18 - LD ST, Vx
     AddI(Register),           // FX1E - ADD I, Vx
-    LoadFont(Register),     // FX29 - LD F, Vx
+    LoadFont(Register),       // FX29 - LD F, Vx
     StoreBCD(Register),       // FX33 - LD B, Vx
     StoreRegisters(Register), // FX55 - LD [I], Vx
     LoadMemory(Register),     // FX65 - LD Vx, [I]
@@ -188,59 +155,58 @@ impl Instruction {
         }
     }
 
-	pub fn has_register(&self) -> bool {
-		match *self {
-			Instruction::SkipEqual(_, _) => true,
-			Instruction::SkipNotEqual(_, _) => true,
-			Instruction::Load(_, _) => true,
-			Instruction::Add(_, _) => true,
-			Instruction::Move(_, _) => true,
-			Instruction::Or(_, _) => true,
-			Instruction::And(_, _) => true,
-			Instruction::Xor(_, _) => true,
-			Instruction::AddXY(_, _) => true,
-			Instruction::SubXY(_, _) => true,
-			Instruction::ShiftRight(_) => true,
-			Instruction::SubYX(_, _) => true,
-			Instruction::ShiftLeft(_) => true,
-			Instruction::SkipNotEqualXY(_, _) => true,
-			Instruction::Random(_, _) => true,
-			Instruction::Draw(_, _, _) => true,
-			Instruction::SkipKeyPressed(_) => true,
-			Instruction::SkipKeyNotPressed(_) => true,
-			Instruction::LoadDelay(_) => true,
-			Instruction::WaitKeyPress(_) => true,
-			Instruction::SetDelay(_) => true,
-			Instruction::SetSound(_) => true,
-			Instruction::AddI(_) => true,
-			Instruction::LoadFont(_) => true,
-			Instruction::StoreBCD(_) => true,
-			Instruction::StoreRegisters(_) => true,
-			Instruction::LoadMemory(_) => true,
-			_ => false,
-		}
-	}
+    pub fn has_register(&self) -> bool {
+        match *self {
+            Instruction::SkipEqual(_, _) => true,
+            Instruction::SkipNotEqual(_, _) => true,
+            Instruction::Load(_, _) => true,
+            Instruction::Add(_, _) => true,
+            Instruction::Move(_, _) => true,
+            Instruction::Or(_, _) => true,
+            Instruction::And(_, _) => true,
+            Instruction::Xor(_, _) => true,
+            Instruction::AddXY(_, _) => true,
+            Instruction::SubXY(_, _) => true,
+            Instruction::ShiftRight(_) => true,
+            Instruction::SubYX(_, _) => true,
+            Instruction::ShiftLeft(_) => true,
+            Instruction::SkipNotEqualXY(_, _) => true,
+            Instruction::Random(_, _) => true,
+            Instruction::Draw(_, _, _) => true,
+            Instruction::SkipKeyPressed(_) => true,
+            Instruction::SkipKeyNotPressed(_) => true,
+            Instruction::LoadDelay(_) => true,
+            Instruction::WaitKeyPress(_) => true,
+            Instruction::SetDelay(_) => true,
+            Instruction::SetSound(_) => true,
+            Instruction::AddI(_) => true,
+            Instruction::LoadFont(_) => true,
+            Instruction::StoreBCD(_) => true,
+            Instruction::StoreRegisters(_) => true,
+            Instruction::LoadMemory(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[allow(dead_code)]
 pub struct Emulator {
-	/* Memory Layout:
-		|- 0x000 - 0x1FF: Chip 8 interpreter (contains font set in emulator)
-		|- 0x050 - 0x0A0: Used for the built in 4x5 pixel font set (0-F)
-		|- 0x200 - 0xFFF: Program ROM and work RAM 
-	*/
-
-    pub memory: [u8; MEMORY_SIZE],	// 4K memory; 0x000 - 0xFFF
-    pub v: [u8; NUM_REGISTERS],		// 16 8-bit registers; 0x0 - 0xF
-    pub i: u16,             		// Memory address register
-    pub pc: u16,            		// Program counter
-    pub stack: [u16; STACK_SIZE],   // Stack; 16 levels of 16-bit values
-    pub sp: u8,             		// Stack pointer; points to the top of the stack
-    pub dt: u8,    					// Delay timer
-    pub st: u8,    					// Sound timer
-    pub keyboard: Keyboard, 		// Keyboard
-	pub draw_flag: bool,			// Draw flag
-	pub screen: [bool; DISPLAY_WIDTH * DISPLAY_HEIGHT], // Screen
+    /* Memory Layout:
+        |- 0x000 - 0x1FF: Chip 8 interpreter (contains font set in emulator)
+        |- 0x050 - 0x0A0: Used for the built in 4x5 pixel font set (0-F)
+        |- 0x200 - 0xFFF: Program ROM and work RAM
+    */
+    pub memory: [u8; MEMORY_SIZE], // 4K memory; 0x000 - 0xFFF
+    pub v: [u8; NUM_REGISTERS],    // 16 8-bit registers; 0x0 - 0xF
+    pub i: u16,                    // Memory address register
+    pub pc: u16,                   // Program counter
+    pub stack: [u16; STACK_SIZE],  // Stack; 16 levels of 16-bit values
+    pub sp: u8,                    // Stack pointer; points to the top of the stack
+    pub dt: u8,                    // Delay timer
+    pub st: u8,                    // Sound timer
+    pub draw_flag: bool,           // Draw flag
+    pub screen: [bool; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize], // Screen
+    pub keypad: [bool; NUM_KEYS],  // Keys
 }
 
 impl Emulator {
@@ -255,9 +221,9 @@ impl Emulator {
             sp: 0,
             dt: 0,
             st: 0,
-            keyboard: Keyboard::new(),
-			draw_flag: false,
-			screen: [false; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            draw_flag: false,
+            screen: [false; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize],
+            keypad: [false; NUM_KEYS],
         };
 
         // Load the font set into memory
@@ -273,340 +239,356 @@ impl Emulator {
         }
     }
 
-	fn push(&mut self, val: u16) {
-		self.stack[self.sp as usize] = val;
-		self.sp += 1;
-	}
+    fn push(&mut self, val: u16) {
+        self.stack[self.sp as usize] = val;
+        self.sp += 1;
+    }
 
-	fn pop(&mut self) -> u16 {
-		self.sp -= 1;
-		self.stack[self.sp as usize]
-	}
+    fn pop(&mut self) -> u16 {
+        self.sp -= 1;
+        self.stack[self.sp as usize]
+    }
 
-	fn clear_screen(&mut self) {
-		self.screen = [false; DISPLAY_WIDTH * DISPLAY_HEIGHT];
-	}
+    fn clear_screen(&mut self) {
+        self.screen = [false; (SCREEN_WIDTH * SCREEN_HEIGHT) as usize];
+    }
 
-	// Fetch the next instruction
-	pub fn fetch(&mut self) -> Option<Instruction> {
-		// Read the 2 byte long opcode from memory
+    // KEYBOARD operations
+    pub fn key_down(&mut self, key: u8) {
+        self.keypad[key as usize] = true;
+    }
+
+    pub fn key_up(&mut self, key: u8) {
+        self.keypad[key as usize] = false;
+    }
+
+    // Fetch the next instruction
+    pub fn fetch(&mut self) -> Option<Instruction> {
+        // Read the 2 byte long opcode from memory
         let hb = self.memory[self.pc as usize] as u16; // High byte (left side byte)
         let lb = self.memory[(self.pc + 1) as usize] as u16; // Low byte (right side byte)
         let combine = (hb << 8) | lb; // Combine the 2 bytes into a 16 bit opcode
         let op = OpCode(combine); // Create an opcode from the 16 bit value
-		self.pc += 2; // Next instruction
-		
-		// Turn the opcode into an instruction
-		let instruction = Instruction::from(op);
-		instruction
-	}
+        self.pc += 2; // Next instruction
 
-	// One cycle of CHIP-8
-	pub fn tick(&mut self) -> Result<(), Chip8Error> {
-		// Fetch the next instruction
-		let instruction = self.fetch();
+        // Turn the opcode into an instruction
+        let instruction = Instruction::from(op);
+        instruction
+    }
 
-		match instruction {
-			Some(instruction) => {
-				// Execute the instruction
-				let result = self.execute(instruction);
+    // One cycle of CHIP-8
+    pub fn tick(&mut self) -> Result<(), Chip8Error> {
+        // Fetch the next instruction
+        let instruction = self.fetch();
 
-				if let Err(e) = result {
-					return Err(e);
-				}
-			},
-			None => {
-				return Err(Chip8Error::InvalidInstruction(self.pc));
-			}
-		}
-		Ok(())
-	}
+        match instruction {
+            Some(instruction) => {
+                // Execute the instruction
+                let result = self.execute(instruction);
 
-	pub fn execute(&mut self, instruction: Instruction) -> Result<(), Chip8Error> {
-		match instruction {
-			// Clear the display
-			Instruction::ClearDisplay => {
-				self.clear_screen();
-				Ok(())
-			},
-			// Return from a subroutine
-			Instruction::Return => {
-				// Check if the stack pointer is 0
-				if self.sp == 0 {
-					return Err(Chip8Error::StackUnderflow);
-				}
+                if let Err(e) = result {
+                    return Err(e);
+                }
+            }
+            None => {
+                return Err(Chip8Error::InvalidInstruction(self.pc));
+            }
+        }
+        Ok(())
+    }
 
-				let return_addr = self.pop();
-				self.pc = return_addr;
-				Ok(())
-			},
-			// Jump to address
-			Instruction::Jump(addr) => {
-				self.pc = addr;
-				Ok(())
-			},
-			// Call subroutine at address
-			Instruction::Call(addr) => {
-				// Check if the stack pointer is at the max
-				if self.sp == STACK_SIZE as u8 {
-					return Err(Chip8Error::StackOverflow);
-				}
+    pub fn execute(&mut self, instruction: Instruction) -> Result<(), Chip8Error> {
+        match instruction {
+            // Clear the display
+            Instruction::ClearDisplay => {
+                self.clear_screen();
+                Ok(())
+            }
+            // Return from a subroutine
+            Instruction::Return => {
+                // Check if the stack pointer is 0
+                if self.sp == 0 {
+                    return Err(Chip8Error::StackUnderflow);
+                }
 
-				self.push(self.pc);
-				self.pc = addr;
-				Ok(())
-			},
-			// Skip next instruction if Vx == byte
-			Instruction::SkipEqual(x, byte) => {
-				if self.v[x] == byte {
-					self.pc += 2;
-				}
-				Ok(())
-			},
-			// Skip next instruction if Vx != byte
-			Instruction::SkipNotEqual(x, byte) => {
-				if self.v[x] != byte {
-					self.pc += 2;
-				}
-				Ok(())
-			},
-			// Skip next instruction if Vx == Vy
-			Instruction::SkipEqualXY(x, y) => {
-				if self.v[x] == self.v[y] {
-					self.pc += 2;
-				}
-				Ok(())
-			},
-			// Set Vx = byte
-			Instruction::Load(x, byte) => {
-				self.v[x] = byte;
-				Ok(())
-			},
-			// Set Vx = Vx + byte
-			Instruction::Add(x, byte) => {
-				self.v[x] = self.v[x].wrapping_add(byte);
-				Ok(())
-			},
-			// Set Vx = Vy
-			Instruction::Move(x, y) => {
-				self.v[x] = self.v[y];
-				Ok(())
-			},
-			// Set Vx = Vx OR Vy
-			Instruction::Or(x, y) => {
-				self.v[x] |= self.v[y];
-				Ok(())
-			},
-			// Set Vx = Vx AND Vy
-			Instruction::And(x, y) => {
-				self.v[x] &= self.v[y];
-				Ok(())
-			},
-			// Set Vx = Vx XOR Vy
-			Instruction::Xor(x, y) => {
-				self.v[x] ^= self.v[y];
-				Ok(())
-			},
-			// Set Vx = Vx + Vy, set VF = carry
-			Instruction::AddXY(x, y) => {
-				let (val, carry) = self.v[x].overflowing_add(self.v[y]);
-				self.v[x] = val;
-				self.v[0xF] = carry as u8;
-				Ok(())
-			},
-			// Set Vx = Vx - Vy, set VF = NOT borrow
-			Instruction::SubXY(x, y) => {
-				let (val, borrow) = self.v[x].overflowing_sub(self.v[y]);
-				self.v[x] = val;
-				self.v[0xF] = !borrow as u8;
-				Ok(())
-			},
-			// Set Vx = Vx SHR 1
-			Instruction::ShiftRight(x) => {
-				self.v[0xF] = self.v[x] & 0x1;
-				self.v[x] >>= 1;
-				Ok(())
-			},
-			// Set Vx = Vy - Vx, set VF = NOT borrow
-			Instruction::SubYX(x, y) => {
-				let (val, borrow) = self.v[y].overflowing_sub(self.v[x]);
-				self.v[x] = val;
-				self.v[0xF] = !borrow as u8;
-				Ok(())
-			},
-			// Set Vx = Vx SHL 1
-			Instruction::ShiftLeft(x) => {
-				self.v[0xF] = (self.v[x] >> 7) & 0x1;
-				self.v[x] <<= 1;
-				Ok(())
-			},
-			// Skip next instruction if Vx != Vy
-			Instruction::SkipNotEqualXY(x, y) => {
-				if self.v[x] != self.v[y] {
-					self.pc += 2;
-				}
-				Ok(())
-			},
-			// Set I = addr
-			Instruction::LoadI(addr) => {
-				self.i = addr;
-				Ok(())
-			},
-			// Jump to location addr + V0
-			Instruction::JumpV0(addr) => {
-				self.pc = addr + (self.v[0] as u16);
-				Ok(())
-			},
-			// Set Vx = random byte AND byte
-			Instruction::Random(x, byte) => {
-				let mut rng = rand::thread_rng();
-				self.v[x] = rng.gen::<u8>() & byte;
-				Ok(())
-			},
-			// Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
-			Instruction::Draw(x, y, nibble) => {
-				let x_coord = self.v[x] as usize;
-				let y_coord = self.v[y] as usize;
-				let mut collision = false;
+                let return_addr = self.pop();
+                self.pc = return_addr;
+                Ok(())
+            }
+            // Jump to address
+            Instruction::Jump(addr) => {
+                self.pc = addr;
+                Ok(())
+            }
+            // Call subroutine at address
+            Instruction::Call(addr) => {
+                // Check if the stack pointer is at the max
+                if self.sp == STACK_SIZE as u8 {
+                    return Err(Chip8Error::StackOverflow);
+                }
 
-				for row in 0..nibble {
-					let addr = (self.i + row as u16) as usize;
-					let pixels = self.memory[addr];
+                self.push(self.pc);
+                self.pc = addr;
+                Ok(())
+            }
+            // Skip next instruction if Vx == byte
+            Instruction::SkipEqual(x, byte) => {
+                if self.v[x] == byte {
+                    self.pc += 2;
+                }
+                Ok(())
+            }
+            // Skip next instruction if Vx != byte
+            Instruction::SkipNotEqual(x, byte) => {
+                if self.v[x] != byte {
+                    self.pc += 2;
+                }
+                Ok(())
+            }
+            // Skip next instruction if Vx == Vy
+            Instruction::SkipEqualXY(x, y) => {
+                if self.v[x] == self.v[y] {
+                    self.pc += 2;
+                }
+                Ok(())
+            }
+            // Set Vx = byte
+            Instruction::Load(x, byte) => {
+                self.v[x] = byte;
+                Ok(())
+            }
+            // Set Vx = Vx + byte
+            Instruction::Add(x, byte) => {
+                self.v[x] = self.v[x].wrapping_add(byte);
+                Ok(())
+            }
+            // Set Vx = Vy
+            Instruction::Move(x, y) => {
+                self.v[x] = self.v[y];
+                Ok(())
+            }
+            // Set Vx = Vx OR Vy
+            Instruction::Or(x, y) => {
+                self.v[x] |= self.v[y];
+                Ok(())
+            }
+            // Set Vx = Vx AND Vy
+            Instruction::And(x, y) => {
+                self.v[x] &= self.v[y];
+                Ok(())
+            }
+            // Set Vx = Vx XOR Vy
+            Instruction::Xor(x, y) => {
+                self.v[x] ^= self.v[y];
+                Ok(())
+            }
+            // Set Vx = Vx + Vy, set VF = carry
+            Instruction::AddXY(x, y) => {
+                let (val, carry) = self.v[x].overflowing_add(self.v[y]);
+                self.v[x] = val;
+                self.v[0xF] = carry as u8;
+                Ok(())
+            }
+            // Set Vx = Vx - Vy, set VF = NOT borrow
+            Instruction::SubXY(x, y) => {
+                let (val, borrow) = self.v[x].overflowing_sub(self.v[y]);
+                self.v[x] = val;
+                self.v[0xF] = !borrow as u8;
+                Ok(())
+            }
+            // Set Vx = Vx SHR 1
+            Instruction::ShiftRight(x) => {
+                self.v[0xF] = self.v[x] & 0x1;
+                self.v[x] >>= 1;
+                Ok(())
+            }
+            // Set Vx = Vy - Vx, set VF = NOT borrow
+            Instruction::SubYX(x, y) => {
+                let (val, borrow) = self.v[y].overflowing_sub(self.v[x]);
+                self.v[x] = val;
+                self.v[0xF] = !borrow as u8;
+                Ok(())
+            }
+            // Set Vx = Vx SHL 1
+            Instruction::ShiftLeft(x) => {
+                self.v[0xF] = (self.v[x] >> 7) & 0x1;
+                self.v[x] <<= 1;
+                Ok(())
+            }
+            // Skip next instruction if Vx != Vy
+            Instruction::SkipNotEqualXY(x, y) => {
+                if self.v[x] != self.v[y] {
+                    self.pc += 2;
+                }
+                Ok(())
+            }
+            // Set I = addr
+            Instruction::LoadI(addr) => {
+                self.i = addr;
+                Ok(())
+            }
+            // Jump to location addr + V0
+            Instruction::JumpV0(addr) => {
+                self.pc = addr + (self.v[0] as u16);
+                Ok(())
+            }
+            // Set Vx = random byte AND byte
+            Instruction::Random(x, byte) => {
+                let mut rng = rand::thread_rng();
+                self.v[x] = rng.gen::<u8>() & byte;
+                Ok(())
+            }
+            // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision
+            Instruction::Draw(x, y, nibble) => {
+                let x_coord = self.v[x] as usize;
+                let y_coord = self.v[y] as usize;
+                let mut collision = false;
 
-					for col in 0..8 {
-						if (pixels & (0x80 >> col)) != 0 {
-							// Sprites should wrap around screen, so apply modulo
-							let x = (x_coord + col) % DISPLAY_WIDTH;
-							let y = (y_coord + row as usize) % DISPLAY_HEIGHT;
-							// Get our pixel's index for our 1D screen array
-							let idx = x + DISPLAY_WIDTH * y;
-							// Check if we're about to flip the pixel and set
-							collision |= self.screen[idx];
-							self.screen[idx] ^= true;
-						}
-					}
-				}
+                for row in 0..nibble {
+                    let addr = (self.i + row as u16) as usize;
+                    let pixels = self.memory[addr];
 
-				self.v[0xF] = collision as u8;
-				self.draw_flag = true;
+                    for col in 0..8 {
+                        if (pixels & (0x80 >> col)) != 0 {
+                            // Sprites should wrap around screen, so apply modulo
+                            let x = (x_coord + col) % SCREEN_WIDTH as usize;
+                            let y = (y_coord + row as usize) % SCREEN_HEIGHT as usize;
+                            // Get our pixel's index for our 1D screen array
+                            let idx = x + (SCREEN_WIDTH as usize) * y;
+                            // Check if we're about to flip the pixel and set
+                            collision |= self.screen[idx];
+                            self.screen[idx] ^= true;
+                        }
+                    }
+                }
 
-				Ok(())
-			},
-			// Skip next instruction if key with the value of Vx is pressed
-			Instruction::SkipKeyPressed(x) => {
-				let key = self.v[x];
-				if self.keyboard.pressed_key() == Some(key) {
-					self.pc += 2;
-				}
-				Ok(())
-			},
-			// Skip next instruction if key with the value of Vx is not pressed
-			Instruction::SkipKeyNotPressed(x) => {
-				let key = self.v[x];
-				if self.keyboard.pressed_key() != Some(key) {
-					self.pc += 2;
-				}	
-				Ok(())
-			},
-			// Set Vx = delay timer value
-			Instruction::LoadDelay(x) => {
-				self.v[x] = self.dt;
-				Ok(())
-			},
-			// Wait for a key press, store the value of the key in Vx
-			Instruction::WaitKeyPress(x) => {
-				if let Some(key) = self.keyboard.pressed_key() {
-					self.v[x] = key;
-				} else {
-					self.pc -= 2;
-				}
-				Ok(())
-			},
-			// Set delay timer = Vx
-			Instruction::SetDelay(x) => {
-				self.dt = self.v[x];
-				Ok(())
-			},
-			// Set sound timer = Vx
-			Instruction::SetSound(x) => {
-				self.st = self.v[x];
-				Ok(())
-			},
-			// Set I = I + Vx
-			Instruction::AddI(x) => {
-				self.i = self.i.wrapping_add(self.v[x] as u16);
-				Ok(())
-			},
-			// Set I = font sprite for digit Vx
-			Instruction::LoadFont(x) => {
-				self.i = (self.v[x] as u16) * 5;
-				Ok(())
-			},
-			// Store BCD representation of Vx in memory locations I, I+1, and I+2
-			Instruction::StoreBCD(x) => {
-				let val = self.v[x] as f32;
-				// Get the hundreds digit by dividing by 100 and taking the floor
-				let hundreds 	= (val / 100.0).floor() as u8;
-				// Get the tens digit by dividing by 10, tossing the ones digit and taking the floor
-				let tens 		= ((val / 10.0) % 10.0).floor() as u8;
-				// Get the ones digit by taking the remainder of the division by 10
-				let ones 		= (val % 10.0).floor() as u8;
+                self.v[0xF] = collision as u8;
+                self.draw_flag = true;
 
-				self.memory[self.i as usize] 		= hundreds;
-				self.memory[(self.i + 1) as usize] 	= tens;
-				self.memory[(self.i + 2) as usize] 	= ones;
-				Ok(())
-			},
-			// Store registers V0 through Vx in memory starting at location I
-			Instruction::StoreRegisters(x) => {
-				for idx in 0..=x {
-					self.memory[(self.i as usize) + idx] = self.v[idx];
-				}
-				Ok(())
-			},
-			// Read registers V0 through Vx from memory starting at location I
-			Instruction::LoadMemory(x) => {
-				for idx in 0..=x {
-					self.v[idx] = self.memory[(self.i as usize) + idx];
-				}
-				Ok(())
-			},
-		}
-	}
+                Ok(())
+            }
+            // Skip next instruction if key with the value of Vx is pressed
+            Instruction::SkipKeyPressed(x) => {
+                let key = self.v[x];
+                if self.keypad[key as usize] {
+                    self.pc += 2;
+                }
+                Ok(())
+            }
+            // Skip next instruction if key with the value of Vx is not pressed
+            Instruction::SkipKeyNotPressed(x) => {
+                let key = self.v[x];
+                if !self.keypad[key as usize] {
+                    self.pc += 2;
+                }
+                Ok(())
+            }
+            // Set Vx = delay timer value
+            Instruction::LoadDelay(x) => {
+                self.v[x] = self.dt;
+                Ok(())
+            }
+            // Wait for a key press, store the value of the key in Vx
+            Instruction::WaitKeyPress(x) => {
+                let mut pressed = false;
+                for (i, &key) in self.keypad.iter().enumerate() {
+                    if key {
+                        self.v[x] = i as u8;
+                        pressed = true;
+                        break;
+                    }
+                }
 
-	pub fn timer_tick(&mut self) {
-		// Decrement delay timer if it's greater than zero every tick
-		if self.dt > 0 {
-			self.dt -= 1;
-		}
-	
-		// Decrement sound timer if it's greater than zero every tick
-		// If it's zero, play the "beep" sound
-		if self.st > 0 {
-			if self.st == 1 {
-				println!("BEEP!");
-			}
-			self.st -= 1;
-		}
-	}
+                if !pressed {
+                    self.pc -= 2;
+                }
+                Ok(())
+            }
+            // Set delay timer = Vx
+            Instruction::SetDelay(x) => {
+                self.dt = self.v[x];
+                Ok(())
+            }
+            // Set sound timer = Vx
+            Instruction::SetSound(x) => {
+                self.st = self.v[x];
+                Ok(())
+            }
+            // Set I = I + Vx
+            Instruction::AddI(x) => {
+                self.i = self.i.wrapping_add(self.v[x] as u16);
+                Ok(())
+            }
+            // Set I = font sprite for digit Vx
+            Instruction::LoadFont(x) => {
+                self.i = (self.v[x] as u16) * 5;
+                Ok(())
+            }
+            // Store BCD representation of Vx in memory locations I, I+1, and I+2
+            Instruction::StoreBCD(x) => {
+                let val = self.v[x] as f32;
+                // Get the hundreds digit by dividing by 100 and taking the floor
+                let hundreds = (val / 100.0).floor() as u8;
+                // Get the tens digit by dividing by 10, tossing the ones digit and taking the floor
+                let tens = ((val / 10.0) % 10.0).floor() as u8;
+                // Get the ones digit by taking the remainder of the division by 10
+                let ones = (val % 10.0).floor() as u8;
 
-	pub fn reset_memory(&mut self) {
-		self.memory = [0; MEMORY_SIZE];
-	}
+                self.memory[self.i as usize] = hundreds;
+                self.memory[(self.i + 1) as usize] = tens;
+                self.memory[(self.i + 2) as usize] = ones;
+                Ok(())
+            }
+            // Store registers V0 through Vx in memory starting at location I
+            Instruction::StoreRegisters(x) => {
+                for idx in 0..=x {
+                    self.memory[(self.i as usize) + idx] = self.v[idx];
+                }
+                Ok(())
+            }
+            // Read registers V0 through Vx from memory starting at location I
+            Instruction::LoadMemory(x) => {
+                for idx in 0..=x {
+                    self.v[idx] = self.memory[(self.i as usize) + idx];
+                }
+                Ok(())
+            }
+        }
+    }
 
-	pub fn reset_registers(&mut self) {
-		self.v = [0; NUM_REGISTERS];
-		self.i = 0;
-		self.pc = ROM_START;
-	}
+    pub fn timer_tick(&mut self) {
+        // Decrement delay timer if it's greater than zero every tick
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
 
-	pub fn reset_timers(&mut self) {
-		self.dt = 0;
-		self.st = 0;
-	}
+        // Decrement sound timer if it's greater than zero every tick
+        // If it's zero, play the "beep" sound
+        if self.st > 0 {
+            if self.st == 1 {
+                println!("BEEP!");
+            }
+            self.st -= 1;
+        }
+    }
 
-	pub fn reset_stack(&mut self) {
-		self.stack = [0; STACK_SIZE];
-		self.sp = 0;
-	}
+    pub fn reset_memory(&mut self) {
+        self.memory = [0; MEMORY_SIZE];
+    }
+
+    pub fn reset_registers(&mut self) {
+        self.v = [0; NUM_REGISTERS];
+        self.i = 0;
+        self.pc = ROM_START;
+    }
+
+    pub fn reset_timers(&mut self) {
+        self.dt = 0;
+        self.st = 0;
+    }
+
+    pub fn reset_stack(&mut self) {
+        self.stack = [0; STACK_SIZE];
+        self.sp = 0;
+    }
 }
